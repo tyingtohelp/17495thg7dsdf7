@@ -907,8 +907,13 @@ local CLUSTER_MIN     = 1
 local DISPERSE_SECS   = 5             
 local markedThisRound = false
 local dispersedSince  = nil           
+local autoMarkFrameCounter = 0
+local AUTO_MARK_INTERVAL = 15
 connections[#connections + 1] = RunService.Heartbeat:Connect(function()
 	if not espTeamCheck then return end
+	autoMarkFrameCounter = autoMarkFrameCounter + 1
+	if autoMarkFrameCounter < AUTO_MARK_INTERVAL then return end
+	autoMarkFrameCounter = 0
 	local myPos = getMyPosition()
 	if not myPos then return end
 	local nearbyModels = {}
@@ -2572,6 +2577,20 @@ RadarRing.BorderSizePixel = 1
 RadarRing.BorderColor3 = Color3.fromRGB(80, 80, 100)
 RadarRing.ZIndex = 501
 Instance.new("UICorner", RadarRing).CornerRadius = UDim.new(1, 0)
+local radarBlipPool = {}
+local RADAR_MAX_BLIPS = 50
+for i = 1, RADAR_MAX_BLIPS do
+	local blip = Instance.new("Frame")
+	blip.Name = "RadarBlip"
+	blip.Size = UDim2.new(0, 6, 0, 6)
+	blip.AnchorPoint = Vector2.new(0.5, 0.5)
+	blip.BackgroundColor3 = Color3.fromRGB(r, g, b)
+	blip.ZIndex = 503
+	blip.Visible = false
+	blip.Parent = RadarFrame
+	Instance.new("UICorner", blip).CornerRadius = UDim.new(1, 0)
+	radarBlipPool[i] = blip
+end
 KillFeedFrame = Instance.new("Frame")
 KillFeedFrame.Name = "SakuraKillFeed"
 KillFeedFrame.Size = UDim2.new(0, 200, 0, 160)
@@ -2630,17 +2649,26 @@ for _, element in pairs(ScreenGui:GetDescendants()) do
 		pcall(function() element.AutoLocalize = false end)
 	end
 end
+local espFrameCounter = 0
+local ESP_UPDATE_INTERVAL = 3
+local prevR, prevG, prevB = r, g, b
 connections[#connections + 1] = RunService.Heartbeat:Connect(function()
 	if unloaded then return end 
 	local color = Color3.fromRGB(r, g, b)
-	if Preview and Preview.Parent then Preview.BackgroundColor3 = color end
-	if EnemyPreview and EnemyPreview.Parent then EnemyPreview.BackgroundColor3 = color end
-	if BarTitle and BarTitle.Parent then BarTitle.TextColor3 = color end
-	if Module and Module.Parent then Module.ScrollBarImageColor3 = color end
-	if activeTab and activeTab.btn and activeTab.btn.Parent then activeTab.btn.TextColor3 = color end
+	if r ~= prevR or g ~= prevG or b ~= prevB then
+		prevR, prevG, prevB = r, g, b
+		if Preview and Preview.Parent then Preview.BackgroundColor3 = color end
+		if EnemyPreview and EnemyPreview.Parent then EnemyPreview.BackgroundColor3 = color end
+		if BarTitle and BarTitle.Parent then BarTitle.TextColor3 = color end
+		if Module and Module.Parent then Module.ScrollBarImageColor3 = color end
+		if activeTab and activeTab.btn and activeTab.btn.Parent then activeTab.btn.TextColor3 = color end
+	end
 	if not hubAuthorized then return end
 	if not espEnabled then return end
-	task.spawn(function()
+	espFrameCounter = espFrameCounter + 1
+	if espFrameCounter < ESP_UPDATE_INTERVAL then return end
+	espFrameCounter = 0
+	do
 		local scanned = {}
 		local debugLines = {}
 		table.insert(debugLines, "MANUALLY MARKED MODELS:")
@@ -2838,7 +2866,7 @@ connections[#connections + 1] = RunService.Heartbeat:Connect(function()
 		if LiveDebugText then
 			LiveDebugText.Text = table.concat(debugLines, "\n")
 		end
-	end)
+	end
 end)
 KeyBind.MouseButton1Click:Connect(function()
 	if listeningForKey then return end
@@ -2957,20 +2985,17 @@ end)
 connections[#connections + 1] = RunService.Heartbeat:Connect(function()
 	RadarFrame.Visible = radarEnabled
 	if not radarEnabled then
-		for _, c in pairs(RadarFrame:GetChildren()) do
-			if c.Name == "RadarBlip" then c:Destroy() end
+		for _, blip in ipairs(radarBlipPool) do
+			blip.Visible = false
 		end
 		return
-	end
-	for _, c in pairs(RadarFrame:GetChildren()) do
-		if c.Name == "RadarBlip" then c:Destroy() end
 	end
 	local cam = Workspace.CurrentCamera
 	local camCF = cam.CFrame
 	local myPos = camCF.Position
 	local fwd   = Vector3.new(camCF.LookVector.X, 0, camCF.LookVector.Z).Unit
 	local right = Vector3.new(camCF.RightVector.X, 0, camCF.RightVector.Z).Unit
-	local radarR = RadarFrame.AbsoluteSize.X / 2
+	local blipIndex = 0
 	for _, obj in pairs(Workspace:GetChildren()) do
 		if not (obj:IsA("Model") and obj.Name == "Male") then continue end
 		if obj:FindFirstChildOfClass("BallSocketConstraint", true) then continue end
@@ -2988,14 +3013,17 @@ connections[#connections + 1] = RunService.Heartbeat:Connect(function()
 		local teammate = permanentTeammateSet[obj] or (espTeamCheck and isTeammate(obj))
 		local blipColor = teammate and Color3.fromRGB(tr, tg, tb) or Color3.fromRGB(r, g, b)
 		local blipSize  = math.max(4, 8 - scale * 4)
-		local blip = Instance.new("Frame", RadarFrame)
-		blip.Name = "RadarBlip"
-		blip.Size = UDim2.new(0, blipSize, 0, blipSize)
-		blip.AnchorPoint = Vector2.new(0.5, 0.5)
-		blip.Position = UDim2.new(px, 0, py, 0)
-		blip.BackgroundColor3 = blipColor
-		blip.ZIndex = 503
-		Instance.new("UICorner", blip).CornerRadius = UDim.new(1, 0)
+		blipIndex = blipIndex + 1
+		if blipIndex <= RADAR_MAX_BLIPS then
+			local blip = radarBlipPool[blipIndex]
+			blip.Size = UDim2.new(0, blipSize, 0, blipSize)
+			blip.Position = UDim2.new(px, 0, py, 0)
+			blip.BackgroundColor3 = blipColor
+			blip.Visible = true
+		end
+	end
+	for i = blipIndex + 1, RADAR_MAX_BLIPS do
+		radarBlipPool[i].Visible = false
 	end
 end)
 connections[#connections + 1] = RunService.Heartbeat:Connect(function()
