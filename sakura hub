@@ -860,7 +860,7 @@ markTeammates = function()
 		local matched = matchTagToModels(entries, myPos)
 		for model in pairs(matched) do
 			permanentTeammateSet[model] = true
-			count += 1
+			count = count + 1
 		end
 		for _, entry in ipairs(entries) do
 			if #entry.name > 0 then
@@ -885,7 +885,7 @@ markTeammates = function()
 			if not root or not root:IsA("BasePart") then continue end
 			if (root.Position - myPos).Magnitude <= MARK_RADIUS then
 				permanentTeammateSet[obj] = true
-				count += 1
+				count = count + 1
 			end
 		end
 		MarkTeamCount.Text = count == 0
@@ -962,7 +962,7 @@ connections[#connections + 1] = RunService.Heartbeat:Connect(function()
 	end
 	local matched    = matchTagToModels(entries, myPos)
 	local matchCount = 0
-	for _ in pairs(matched) do matchCount += 1 end
+	for _ in pairs(matched) do matchCount = matchCount + 1 end
 	if matchCount > 0 then
 		markedThisRound  = true
 		permanentTeammateSet = {}
@@ -2609,7 +2609,7 @@ local killFeedCount = 0
 local killedModels  = {}
 local function pushKillFeed(name)
 	if not killFeedEnabled then return end
-	killFeedCount += 1
+	killFeedCount = killFeedCount + 1
 	local row = Instance.new("TextLabel")
 	row.AutoLocalize = false
 	row.LayoutOrder  = killFeedCount
