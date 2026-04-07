@@ -9,6 +9,8 @@ local SETTINGS_FILE = "sakurahub_settings.json"
 local saveSettings 
 local LocalPlayer = Players.LocalPlayer
 local unloaded = false 
+local hubAuthorized = false
+local savedKey = nil
 local queue_on_teleport = queue_on_teleport or queueonteleport
 if queue_on_teleport then
 	queue_on_teleport([[
@@ -3193,14 +3195,18 @@ connections[#connections + 1] = RunService.RenderStepped:Connect(function(dt)
 		recoilAccum = recoilAccum - sendY
 	end
 end)
-local FOVCircle = Drawing.new("Circle")
-FOVCircle.Thickness = 1.5
-FOVCircle.Color = Color3.fromRGB(r, g, b)
-FOVCircle.Filled = false
-FOVCircle.Visible = false
-FOVCircle.Transparency = 1
-FOVCircle.NumSides = 64
+local FOVCircle = nil
+pcall(function()
+	FOVCircle = Drawing.new("Circle")
+	FOVCircle.Thickness = 1.5
+	FOVCircle.Color = Color3.fromRGB(r, g, b)
+	FOVCircle.Filled = false
+	FOVCircle.Visible = false
+	FOVCircle.Transparency = 1
+	FOVCircle.NumSides = 64
+end)
 connections[#connections + 1] = RunService.RenderStepped:Connect(function()
+	if not FOVCircle then return end
 	FOVCircle.Visible = aimbotEnabled
 	if not aimbotEnabled then return end
 	local vp = Camera.ViewportSize
